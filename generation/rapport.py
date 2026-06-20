@@ -141,11 +141,9 @@ def _finaliser(df: pl.DataFrame, couleur: pl.Expr) -> pl.DataFrame:
     )
 
 
-def _facette(
-    data: pl.DataFrame, ordre: list[str], cols: int, cell_h: int = 600
-) -> dict:
-    largeur = (TEXT_WIDTH - 16 * (cols - 1)) / cols
-    base = alt.Chart(data).encode(
+def _panneau(data: pl.DataFrame, label: str, largeur: int, cell_h: int, idx: int):
+    sub = data.filter(pl.col("paire") == label)
+    base = sub.pipe(alt.Chart).encode(
         y=alt.Y("rang:Q", axis=None, scale=alt.Scale(domain=[0, 1]))
     )
     rule = base.mark_rule(strokeWidth=1).encode(
@@ -169,24 +167,30 @@ def _facette(
             alt.Tooltip("ic_haut:Q", title="IC haut", format=".0%"),
         ],
     )
-    # molette/glissement pour zoomer et déplier les régions denses
-    zoom = alt.selection_interval(bind="scales", encodings=["x", "y"])
-    panneau = (
-        alt.layer(rule, pt, survol)
-        .add_params(zoom)
-        .properties(width=largeur, height=cell_h)
+    # un zoom propre à chaque panneau (molette/glissement), indépendant des autres
+    zoom = alt.selection_interval(
+        bind="scales", encodings=["x", "y"], name=f"zoom{idx}"
     )
     return (
-        panneau.facet(
-            facet=alt.Facet(
-                "paire:N", title=None, sort=ordre, header=alt.Header(labelFontSize=12)
-            ),
-            columns=cols,
-            spacing=16,
+        alt.layer(rule, pt, survol)
+        .add_params(zoom)
+        .properties(
+            width=largeur, height=cell_h, title=alt.TitleParams(label, fontSize=12)
         )
-        .configure_view(stroke=None)
-        .to_dict()
     )
+
+
+def _facette(
+    data: pl.DataFrame, ordre: list[str], cols: int, cell_h: int = 600
+) -> dict:
+    largeur = (TEXT_WIDTH - 16 * (cols - 1)) / cols
+    presents = set(data["paire"].unique().to_list())
+    labels = [lab for lab in ordre if lab in presents]
+    panneaux = [_panneau(data, lab, largeur, cell_h, i) for i, lab in enumerate(labels)]
+    lignes = [
+        alt.hconcat(*panneaux[i : i + cols]) for i in range(0, len(panneaux), cols)
+    ]
+    return alt.vconcat(*lignes, spacing=24).configure_view(stroke=None).to_dict()
 
 
 def _graphe(df: pl.DataFrame, cand: pl.DataFrame, g: Graphe) -> dict:
