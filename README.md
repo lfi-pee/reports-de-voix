@@ -43,8 +43,18 @@ uv run reports-de-voix \
 ```
 
 La sortie est un Parquet avec une ligne par unité : la clé, les `coefficients` de la
-matrice de report aplatie (ordre ligne par ligne), et le `r_square` par colonne de
-second tour.
+matrice de report aplatie (ordre ligne par ligne), et le `r_square` (en échantillon)
+par colonne de second tour.
+
+Deux options ajoutent des indicateurs de fiabilité :
+
+- `--cv-splits N` (défaut `5`, `0` pour désactiver) calcule un `r_square_cv` par
+  validation croisée sur les bureaux. C'est le R² **hors échantillon** : il teste
+  réellement l'hypothèse d'homogénéité, contrairement au `r_square` en échantillon qui
+  est largement mécanique sur un modèle aussi paramétré.
+- `--bootstrap N` (défaut `0`) ajoute `coefficients_std`, l'écart type de chaque cellule
+  obtenu en rééchantillonnant les bureaux. Un écart type élevé signale un coefficient
+  instable (non identifiable) même quand le R² est proche de 1.
 
 ### En bibliothèque
 
@@ -55,5 +65,6 @@ from reports_de_voix import calculer_reports, calculer_r_square
 ## Notes
 
 Une unité n'est traitée que si elle compte au moins autant de bureaux de vote que de
-variables à estimer (`nb_listes_t1²  ≤  nb_bureaux`), faute de quoi le système est
-sous-déterminé.
+coefficients à estimer par colonne de second tour, soit
+`nb_bureaux ≥ nb_listes_t1 + 2` (les listes de premier tour, plus l'abstention et les
+excédents/déficits d'inscrits), faute de quoi le système est sous-déterminé.
