@@ -5,6 +5,7 @@ from reports_de_voix.algorithme import (
     calculer_r_square,
     calculer_r_square_validation,
     calculer_reports,
+    conditionnement,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "calculer_r_square",
     "calculer_r_square_validation",
     "bootstrap_reports",
+    "conditionnement",
 ]

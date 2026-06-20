@@ -43,8 +43,15 @@ uv run reports-de-voix \
 ```
 
 La sortie est un Parquet avec une ligne par unité : la clé, les `coefficients` de la
-matrice de report aplatie (ordre ligne par ligne), et le `r_square` (en échantillon)
-par colonne de second tour.
+matrice de report aplatie (ordre ligne par ligne), le `r_square` (en échantillon) par
+colonne de second tour, et le `conditionnement` de la matrice des votes de premier tour
+(une valeur élevée signale des sources quasi colinéaires, donc des coefficients
+numériquement instables).
+
+L'ajustement est pondéré par bureau (`1/√inscrits`) pour homogénéiser la variance : sans
+pondération, les gros bureaux domineraient mécaniquement l'estimation. La dernière
+colonne implicite capte les électeurs **non exprimés** (abstention, mais aussi votes
+blancs et nuls).
 
 Deux options ajoutent des indicateurs de fiabilité :
 
@@ -66,5 +73,8 @@ from reports_de_voix import calculer_reports, calculer_r_square
 
 Une unité n'est traitée que si elle compte au moins autant de bureaux de vote que de
 coefficients à estimer par colonne de second tour, soit
-`nb_bureaux ≥ nb_listes_t1 + 2` (les listes de premier tour, plus l'abstention et les
-excédents/déficits d'inscrits), faute de quoi le système est sous-déterminé.
+`nb_bureaux ≥ nb_listes_t1 + 2` (les listes de premier tour, plus les non-exprimés et
+les excédents/déficits d'inscrits), faute de quoi le système est sous-déterminé. Ce
+filtre est nécessaire mais pas suffisant : des sources quasi colinéaires restent
+instables, ce que révèlent le `conditionnement` et l'écart type bootstrap. Les sources
+exactement colinéaires (rang déficient) sont écartées.
