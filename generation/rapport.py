@@ -153,7 +153,7 @@ def _facette(
         x2="ic_haut:Q",
         color=alt.Color("coul_ic:N", scale=None, legend=None),
     )
-    pt = base.mark_circle(size=15).encode(
+    pt = base.mark_circle(size=34).encode(
         x=alt.X("report:Q", axis=alt.Axis(format="%")),
         color=alt.Color("coul:N", scale=None, legend=None),
         opacity=alt.condition("datum.fiable", alt.value(0.9), alt.value(0.45)),
@@ -169,7 +169,13 @@ def _facette(
             alt.Tooltip("ic_haut:Q", title="IC haut", format=".0%"),
         ],
     )
-    panneau = alt.layer(rule, pt, survol).properties(width=largeur, height=cell_h)
+    # molette/glissement pour zoomer et déplier les régions denses
+    zoom = alt.selection_interval(bind="scales", encodings=["x", "y"])
+    panneau = (
+        alt.layer(rule, pt, survol)
+        .add_params(zoom)
+        .properties(width=largeur, height=cell_h)
+    )
     return (
         panneau.facet(
             facet=alt.Facet(
