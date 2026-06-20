@@ -1,0 +1,35 @@
+[project]
+name = "reports-de-voix"
+version = "0.1.0"
+description = "Estimation des reports de voix entre deux tours par optimisation convexe"
+authors = [
+    { name = "Salomé Cheysson", email = "salome@cheysson.fr" }
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.1.7",
+    "cvxpy>=1.8.2",
+    "numpy>=2.0.0",
+    "polars>=1.38.3",
+    "tqdm>=4.66.0",
+]
+
+[project.scripts]
+reports-de-voix = "reports_de_voix.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "ruff>=0.8.4",
+]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "B", "A", "PD"]
+
+[build-system]
+requires = ["uv_build>=0.11.18,<0.12"]
+build-backend = "uv_build"
