@@ -21,13 +21,13 @@ def reports_tries(
     source: str,
     destination: str,
     titre: str | None = None,
-    seuil_ic: float = 0.30,
+    seuil_stabilite: float = 0.30,
 ) -> alt.LayerChart:
     """Reports d'un bloc source vers un bloc destination, une ligne par
-    circonscription, triées du plus faible au plus fort report, avec intervalle de
-    confiance bootstrap à 95 %. Les coefficients dont l'intervalle dépasse ``seuil_ic``
-    sont jugés mal identifiés et estompés : c'est leur intervalle, non leur point, qui
-    fait foi."""
+    circonscription, triées du plus faible au plus fort report, avec plage de stabilité
+    (bootstrap, 95 % central). Les coefficients dont la plage dépasse ``seuil_stabilite``
+    sont jugés mal identifiés et estompés : c'est leur plage, non leur point, qui fait
+    foi."""
 
     sel = (
         df.filter(
@@ -37,7 +37,9 @@ def reports_tries(
         )
         .with_columns(
             (pl.col("report") * 100).alias("report_pct"),
-            ((pl.col("ic_haut") - pl.col("ic_bas")) <= seuil_ic).alias("fiable"),
+            (
+                (pl.col("stabilite_haut") - pl.col("stabilite_bas")) <= seuil_stabilite
+            ).alias("stable"),
         )
         .sort("report")
     )
@@ -54,25 +56,27 @@ def reports_tries(
         )
     )
     barre = base.mark_rule(strokeWidth=1.4).encode(
-        x=alt.X("ic_bas:Q", scale=alt.Scale(domain=[0, 1]), title="Report estimé"),
-        x2="ic_haut:Q",
-        color=alt.condition("datum.fiable", alt.value("#8a93a3"), alt.value("#d6dae1")),
+        x=alt.X(
+            "stabilite_bas:Q", scale=alt.Scale(domain=[0, 1]), title="Report estimé"
+        ),
+        x2="stabilite_haut:Q",
+        color=alt.condition("datum.stable", alt.value("#8a93a3"), alt.value("#d6dae1")),
     )
     point = base.mark_circle(size=42).encode(
         x=alt.X("report:Q", axis=alt.Axis(format="%")),
-        color=alt.condition("datum.fiable", alt.value(couleur), alt.value("#b9bec9")),
-        opacity=alt.condition("datum.fiable", alt.value(0.95), alt.value(0.45)),
+        color=alt.condition("datum.stable", alt.value(couleur), alt.value("#b9bec9")),
+        opacity=alt.condition("datum.stable", alt.value(0.95), alt.value(0.45)),
         tooltip=[
             alt.Tooltip("circonscription:N", title="Circ."),
             alt.Tooltip("report_pct:Q", title="Report", format=".0f"),
-            alt.Tooltip("ic_bas:Q", title="IC bas", format=".0%"),
-            alt.Tooltip("ic_haut:Q", title="IC haut", format=".0%"),
+            alt.Tooltip("stabilite_bas:Q", title="Plage basse", format=".0%"),
+            alt.Tooltip("stabilite_haut:Q", title="Plage haute", format=".0%"),
             alt.Tooltip("n_bureaux:Q", title="Bureaux"),
         ],
     )
-    n_fiable = int(sel["fiable"].sum())
+    n_stable = int(sel["stable"].sum())
     titre = titre or f"{source} → {destination} ({configuration})"
-    sous = f"{len(ordre)} circonscriptions, dont {n_fiable} estimées précisément"
+    sous = f"{len(ordre)} circonscriptions, dont {n_stable} à estimation stable"
     return (barre + point).properties(
         height=alt.Step(13),
         width=460,

@@ -15,7 +15,7 @@ SORTIE = Path("docs/analyse-reports-legislatives-2024.html")
 PARQUET = Path("generation/reports_legislatives_2024.parquet")
 DATA = Path("/home/veesion/hexagonal/data/02_clean/elections")
 CANDIDATS_T2 = DATA / "2024-legislatives-2-candidats.csv"
-SEUIL_IC = 0.30
+SEUIL_STABILITE = 0.30
 ABST = "non exprimés (T1)"
 
 
@@ -49,7 +49,8 @@ class Graphe:
     paires: list[tuple[str, str]] = field(default_factory=list)
 
 
-# Chaque graphe du rapport est régénéré à partir du parquet (report + IC bootstrap).
+# Chaque graphe du rapport est régénéré à partir du parquet (report + plage de
+# stabilité bootstrap).
 GRAPHES = [
     Graphe(
         "altair-viz-f2f19ba03acd4ecab652fb0666d2d1d4",
@@ -108,33 +109,33 @@ def _extraire_spec(html: str, div: str) -> str:
 
 
 TEXT_WIDTH = 800
-GRIS_PT, GRIS_IC, GRIS_CLAIR = "#bcc1cc", "#8a93a3", "#dde0e6"
+GRIS_PT, GRIS_STAB, GRIS_CLAIR = "#bcc1cc", "#8a93a3", "#dde0e6"
 COLS = [
     "circonscription",
     "candidat",
     "report",
-    "ic_bas",
-    "ic_haut",
+    "stabilite_bas",
+    "stabilite_haut",
     "paire",
     "rang",
-    "fiable",
+    "stable",
     "coul",
-    "coul_ic",
+    "coul_stab",
 ]
 
 
 def _finaliser(df: pl.DataFrame, couleur: pl.Expr) -> pl.DataFrame:
     """Ajoute le rang (points régulièrement espacés par panneau, donc panneaux de même
-    hauteur), la fiabilité (IC large = mal identifié, estompé) et les couleurs."""
-    fiable = (pl.col("ic_haut") - pl.col("ic_bas")) <= SEUIL_IC
+    hauteur), la stabilité (plage large = mal identifié, estompé) et les couleurs."""
+    stable = (pl.col("stabilite_haut") - pl.col("stabilite_bas")) <= SEUIL_STABILITE
     return (
-        df.with_columns(fiable=fiable)
+        df.with_columns(stable=stable)
         .with_columns(
             rang=(pl.col("report").rank("ordinal").over("paire") - 0.5)
             / pl.len().over("paire"),
-            coul=pl.when("fiable").then(couleur).otherwise(pl.lit(GRIS_PT)),
-            coul_ic=pl.when("fiable")
-            .then(pl.lit(GRIS_IC))
+            coul=pl.when("stable").then(couleur).otherwise(pl.lit(GRIS_PT)),
+            coul_stab=pl.when("stable")
+            .then(pl.lit(GRIS_STAB))
             .otherwise(pl.lit(GRIS_CLAIR)),
         )
         .select(COLS)
@@ -147,14 +148,16 @@ def _panneau(data: pl.DataFrame, label: str, largeur: int, cell_h: int, idx: int
         y=alt.Y("rang:Q", axis=None, scale=alt.Scale(domain=[0, 1]))
     )
     rule = base.mark_rule(strokeWidth=1).encode(
-        x=alt.X("ic_bas:Q", scale=alt.Scale(domain=[0, 1]), title="report estimé"),
-        x2="ic_haut:Q",
-        color=alt.Color("coul_ic:N", scale=None, legend=None),
+        x=alt.X(
+            "stabilite_bas:Q", scale=alt.Scale(domain=[0, 1]), title="report estimé"
+        ),
+        x2="stabilite_haut:Q",
+        color=alt.Color("coul_stab:N", scale=None, legend=None),
     )
     pt = base.mark_circle(size=34).encode(
         x=alt.X("report:Q", axis=alt.Axis(format="%")),
         color=alt.Color("coul:N", scale=None, legend=None),
-        opacity=alt.condition("datum.fiable", alt.value(0.9), alt.value(0.45)),
+        opacity=alt.condition("datum.stable", alt.value(0.9), alt.value(0.45)),
     )
     # cible de survol transparente et large : points denses, zone sensible élargie.
     survol = base.mark_circle(size=260, opacity=0).encode(
@@ -163,8 +166,8 @@ def _panneau(data: pl.DataFrame, label: str, largeur: int, cell_h: int, idx: int
             alt.Tooltip("circonscription:N", title="Circ."),
             alt.Tooltip("candidat:N", title="Candidat·e"),
             alt.Tooltip("report:Q", title="Report", format=".0%"),
-            alt.Tooltip("ic_bas:Q", title="IC bas", format=".0%"),
-            alt.Tooltip("ic_haut:Q", title="IC haut", format=".0%"),
+            alt.Tooltip("stabilite_bas:Q", title="Plage basse", format=".0%"),
+            alt.Tooltip("stabilite_haut:Q", title="Plage haute", format=".0%"),
         ],
     )
     # un zoom propre à chaque panneau (molette/glissement), indépendant des autres
@@ -247,6 +250,34 @@ def _graphe_dissidents(df: pl.DataFrame, cand: pl.DataFrame) -> dict:
     return _facette(data, [o for o in ordre if o in presents], cols=2, cell_h=144)
 
 
+CIRCO_EXEMPLE = "80-02"  # 2e circonscription de la Somme, citée en exemple
+COLS_EXEMPLE = ["NFP", "RN", "ENS-HOR"]
+
+
+def _table_matrice_exemple(df: pl.DataFrame) -> str:
+    """Matrice de report de la circonscription donnée en exemple, régénérée depuis le
+    parquet pour rester cohérente avec le nuançage et la méthode courants."""
+    ordre = [*dict.fromkeys(NUANCE_VERS_BLOC.values()), ABST]
+    piv = df.filter(pl.col("circonscription") == CIRCO_EXEMPLE).pivot(
+        on="destination", index="source", values="report"
+    )
+    presents = set(piv["source"].to_list())
+    lignes = []
+    for i, src in enumerate(s for s in ordre if s in presents):
+        ligne = piv.filter(pl.col("source") == src)
+        cells = "".join(
+            f"<td>{(ligne[col][0] if col in piv.columns else 0.0) * 100:.1f} %</td>"
+            for col in COLS_EXEMPLE
+        )
+        label = "abstention" if src == ABST else src
+        cls = "odd" if i % 2 == 0 else "even"
+        lignes.append(
+            f'<tr class="{cls}"><td data-quarto-table-cell-role="th">{label}</td>'
+            f"{cells}</tr>"
+        )
+    return "".join(lignes)
+
+
 def _remplacer_tbody(html: str, marqueur: str, lignes: str) -> str:
     i = html.find(marqueur)
     a = html.find("<tbody>", i) + len("<tbody>")
@@ -319,10 +350,13 @@ def construire() -> None:
     }
     for div, builder in speciaux.items():
         html = html.replace(_extraire_spec(html, div), json.dumps(builder(df, cand)), 1)
+    html = _remplacer_tbody(
+        html, "circonscription de la Somme", _table_matrice_exemple(df)
+    )
     html = _remplacer_tbody(html, "inférieur à 90 %", _table_r2_faible(df))
     html = _remplacer_tbody(html, "plus hautes valeurs", _table_mobilisation(df, cand))
     SORTIE.write_text(html)
-    print(f"régénéré {len(GRAPHES) + len(speciaux)} graphes + 2 tableaux -> {SORTIE}")
+    print(f"régénéré {len(GRAPHES) + len(speciaux)} graphes + 3 tableaux -> {SORTIE}")
 
 
 if __name__ == "__main__":

@@ -38,6 +38,10 @@ def _configuration(blocs_t2: list[str]) -> str:
 def _bootstrap_percentiles(
     c: Circonscription, reglages: Reglages
 ) -> tuple[np.ndarray, np.ndarray] | None:
+    # Percentiles bootstrap sur le rééchantillonnage des bureaux : ils mesurent la
+    # stabilité de l'estimation, non une couverture à 95 %. L'estimateur est contraint
+    # à [0, 1] et le percentile bootstrap n'est pas valide au bord (Andrews, 2000) ;
+    # d'où « plage de stabilité » plutôt qu'« intervalle de confiance ».
     rng = np.random.default_rng(reglages.seed)
     n = c.t1.shape[0]
     echantillons: list[np.ndarray] = []
@@ -77,8 +81,10 @@ def estimer_une(c: Circonscription, reglages: Reglages) -> list[dict[str, object
                     "source": source,
                     "destination": dest,
                     "report": float(report[i, j]),
-                    "ic_bas": None if bornes is None else float(bornes[0][i, j]),
-                    "ic_haut": None if bornes is None else float(bornes[1][i, j]),
+                    "stabilite_bas": None if bornes is None else float(bornes[0][i, j]),
+                    "stabilite_haut": None
+                    if bornes is None
+                    else float(bornes[1][i, j]),
                     "r2_echantillon": float(r2[j]) if j < len(r2) else None,
                     "r2_validation": None
                     if r2_cv is None
