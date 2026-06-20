@@ -142,7 +142,7 @@ def _finaliser(df: pl.DataFrame, couleur: pl.Expr) -> pl.DataFrame:
 
 
 def _facette(
-    data: pl.DataFrame, ordre: list[str], cols: int, cell_h: int = 500
+    data: pl.DataFrame, ordre: list[str], cols: int, cell_h: int = 600
 ) -> dict:
     largeur = (TEXT_WIDTH - 16 * (cols - 1)) / cols
     base = alt.Chart(data).encode(
@@ -220,7 +220,7 @@ def _graphe_sensibilite(df: pl.DataFrame, cand: pl.DataFrame) -> dict:
         f"{de} · {s}" for s in ["FI", "PS", "EELV", "PCF"] for de in ["ENS-HOR", "LR"]
     ]
     presents = set(data["paire"].unique().to_list())
-    return _facette(data, [o for o in ordre if o in presents], cols=2, cell_h=215)
+    return _facette(data, [o for o in ordre if o in presents], cols=2, cell_h=258)
 
 
 def _graphe_dissidents(df: pl.DataFrame, cand: pl.DataFrame) -> dict:
@@ -234,7 +234,7 @@ def _graphe_dissidents(df: pl.DataFrame, cand: pl.DataFrame) -> dict:
     data = _finaliser(_avec_candidat(base, cand), pl.lit(COULEUR["NFP"]))
     ordre = ["ENS-HOR → NFP dissident", "LR → NFP dissident"]
     presents = set(data["paire"].unique().to_list())
-    return _facette(data, [o for o in ordre if o in presents], cols=2, cell_h=120)
+    return _facette(data, [o for o in ordre if o in presents], cols=2, cell_h=144)
 
 
 def _remplacer_tbody(html: str, marqueur: str, lignes: str) -> str:
