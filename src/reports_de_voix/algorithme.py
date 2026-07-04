@@ -36,26 +36,26 @@ def calculer_reports(
     # pour prendre en compte les situations de radiation / ajout d'électeurs
     excedents = t1_values.sum(axis=1) - t2_values.sum(axis=1)
 
-    N1 = t1_values.shape[1]
-    N2 = t2_values.shape[1]
+    n1 = t1_values.shape[1]
+    n2 = t2_values.shape[1]
 
     t1_values = np.append(t1_values, np.maximum(-excedents, 0)[:, np.newaxis], axis=1)
     t2_values = np.append(t2_values, np.maximum(excedents, 0)[:, np.newaxis], axis=1)
 
-    # La N2+1ème colonne se déduit des autres : chaque ligne doit sommer à 1
-    matrice_report = cp.Variable(shape=(N1 + 1, N2), nonneg=True)
-    constraints = [matrice_report.sum(axis=1) <= np.ones(N1 + 1)]
+    # La n2+1ème colonne se déduit des autres : chaque ligne doit sommer à 1
+    matrice_report = cp.Variable(shape=(n1 + 1, n2), nonneg=True)
+    constraints = [matrice_report.sum(axis=1) <= np.ones(n1 + 1)]
 
     matrice_report_complete = cp.hstack(
         [
             matrice_report,
-            1 - matrice_report.sum(axis=1).reshape([N1 + 1, 1], order="C"),
+            1 - matrice_report.sum(axis=1).reshape([n1 + 1, 1], order="C"),
         ]
     )
 
     residus = t1_values @ matrice_report_complete - t2_values
     if poids is not None:
-        residus = cp.multiply(np.tile(poids[:, np.newaxis], (1, N2 + 1)), residus)
+        residus = cp.multiply(np.tile(poids[:, np.newaxis], (1, n2 + 1)), residus)
 
     problem = cp.Problem(cp.Minimize(cp.sum_squares(residus)), constraints)
     problem.solve(solver=solver)
@@ -137,20 +137,19 @@ def calculer_r_square_validation(
     return 1 - var_residuels / var_totale
 
 
-def bootstrap_reports(
+def echantillons_bootstrap(
     t1_values: np.ndarray,
     t2_values: np.ndarray,
-    n_resamples: int = 200,
+    n_resamples: int,
     solver: str = "CLARABEL",
     seed: int = 0,
     poids: np.ndarray | None = None,
-) -> tuple[np.ndarray, np.ndarray] | None:
-    """Estime l'incertitude par cellule de la matrice de report.
-
-    Rééchantillonne les bureaux de vote avec remise et renvoie la moyenne et l'écart
-    type des matrices obtenues. Un écart type élevé signale un coefficient instable,
-    même lorsque le R² global est proche de 1 (problème d'identifiabilité). Renvoie
-    None si aucun rééchantillon ne donne de solution.
+) -> np.ndarray | None:
+    """Matrices de report obtenues en rééchantillonnant les bureaux avec remise,
+    empilées sur l'axe 0 (les rééchantillons sans solution sont omis). C'est la
+    brique commune aux deux résumés d'incertitude : écart type (``bootstrap_reports``)
+    et plage de stabilité par percentiles (rapport). Renvoie None si aucun
+    rééchantillon n'aboutit.
     """
 
     n_bureaux = t1_values.shape[0]
@@ -166,8 +165,27 @@ def bootstrap_reports(
         if report is not None:
             echantillons.append(report)
 
-    if not echantillons:
-        return None
+    return np.stack(echantillons) if echantillons else None
 
-    pile = np.stack(echantillons)
+
+def bootstrap_reports(
+    t1_values: np.ndarray,
+    t2_values: np.ndarray,
+    n_resamples: int = 200,
+    solver: str = "CLARABEL",
+    seed: int = 0,
+    poids: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Moyenne et écart type par cellule des matrices bootstrap.
+
+    Un écart type élevé signale un coefficient instable, même lorsque le R² global
+    est proche de 1 (problème d'identifiabilité). Renvoie None si aucun rééchantillon
+    ne donne de solution.
+    """
+
+    pile = echantillons_bootstrap(
+        t1_values, t2_values, n_resamples, solver=solver, seed=seed, poids=poids
+    )
+    if pile is None:
+        return None
     return pile.mean(axis=0), pile.std(axis=0)

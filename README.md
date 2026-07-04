@@ -1,11 +1,14 @@
 # Reports de voix
 
-Estimation des **reports de voix** entre deux tours d'une élection, par optimisation
-convexe sur les résultats au niveau des bureaux de vote.
+Ce dépôt produit le rapport « Analyse des reports entre premier et deuxième tours
+des législatives 2024 » ([`rapport.ipynb`](rapport.ipynb)), et fournit la
+bibliothèque et la ligne de commande d'estimation sous-jacentes.
 
-Pour chaque unité géographique (commune, circonscription…), on cherche la matrice de
-report `R` qui minimise l'écart entre les voix observées au second tour et leur
-prédiction à partir du premier tour :
+L'estimation des **reports de voix** entre deux tours se fait par optimisation
+convexe sur les résultats au niveau des bureaux de vote. Pour chaque unité
+géographique (commune, circonscription…), on cherche la matrice de report `R` qui
+minimise l'écart entre les voix observées au second tour et leur prédiction à partir
+du premier tour :
 
 ```
 minimiser  || T1 · R − T2 ||²
@@ -28,7 +31,24 @@ L'installation se fait avec le gestionnaire de paquets
 uv sync
 ```
 
-## Utilisation
+## Le rapport
+
+Le notebook [`rapport.ipynb`](rapport.ipynb) est le rapport : la prose y est
+entrecoupée de cellules qui recalculent chaque tableau et chaque graphe depuis
+`data/reports_legislatives_2024.parquet`. Le ré-exécuter suffit à tout rafraîchir
+(le groupe de dépendances `dev` fournit le noyau Jupyter).
+
+- `uv run python -m reports_de_voix.estimer` régénère le parquet depuis les
+  résultats par bureau de vote du dépôt `hexagonal` : matrices de report par
+  circonscription, R² en échantillon et de validation croisée, plages de stabilité
+  bootstrap ;
+- `uv run python -m reports_de_voix.verifier_claims` confronte les chiffres cités
+  dans la prose au contenu du parquet.
+
+Les modules du rapport sont `donnees` (chargement et nuançage en blocs), `estimer`
+(pipeline d'estimation), `graphiques` et `tables` (figures et tableaux du notebook).
+
+## En ligne de commande
 
 Les entrées sont deux fichiers Parquet de résultats par bureau de vote (un par tour),
 contenant au minimum les colonnes `code_commune`, `bureau_de_vote`, `numero_panneau`,
@@ -63,7 +83,7 @@ Deux options ajoutent des indicateurs de fiabilité :
   obtenu en rééchantillonnant les bureaux. Un écart type élevé signale un coefficient
   instable (non identifiable) même quand le R² est proche de 1.
 
-### En bibliothèque
+## En bibliothèque
 
 ```python
 from reports_de_voix import calculer_reports, calculer_r_square

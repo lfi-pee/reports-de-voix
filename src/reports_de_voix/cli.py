@@ -26,12 +26,14 @@ class Resultat:
 
 
 def _preparer(resultats: pl.DataFrame) -> pl.DataFrame:
+    """Identifiant de bureau unique au niveau national (commune-bureau)."""
     return resultats.with_columns(
         bureau_de_vote=pl.format("{code_commune}-{bureau_de_vote}")
     )
 
 
 def _bureaux(resultats: pl.DataFrame, key: str) -> pl.DataFrame:
+    """Inscrits et non-exprimés par bureau (une ligne par bureau)."""
     return (
         resultats.group_by("bureau_de_vote")
         .agg(
@@ -50,6 +52,7 @@ def _bureaux(resultats: pl.DataFrame, key: str) -> pl.DataFrame:
 
 
 def _pivot(votes: pl.DataFrame, bureaux: pl.DataFrame) -> pl.DataFrame:
+    """Table bureaux × candidats des voix, complétée des non-exprimés."""
     return (
         votes.sort(["bureau_de_vote", "numero_panneau"])
         .pivot(
@@ -74,6 +77,8 @@ def _valeurs(pivot: pl.DataFrame) -> np.ndarray:
 def _aligner(
     t1_pivot: pl.DataFrame, t2_pivot: pl.DataFrame
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Matrices T1/T2 restreintes aux bureaux présents aux deux tours, lignes
+    alignées, plus la pondération 1/√inscrits."""
     communs = set(t1_pivot["bureau_de_vote"]) & set(t2_pivot["bureau_de_vote"])
     t1_pivot = t1_pivot.filter(pl.col("bureau_de_vote").is_in(communs)).sort(
         "bureau_de_vote"
@@ -93,6 +98,7 @@ def _traiter_unite(
     cv_splits: int,
     bootstrap: int,
 ) -> Resultat | None:
+    """Estime une unité : matrice de report et indicateurs de fiabilité demandés."""
     t1_values, t2_values, poids = _aligner(
         _pivot(t1_votes, bureaux_t1), _pivot(t2_votes, bureaux_t2)
     )
