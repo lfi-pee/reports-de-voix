@@ -11,10 +11,15 @@ import nbformat
 from nbconvert import HTMLExporter
 
 VEGA_MIME = "application/vnd.vegalite.v6+json"
+# nbconvert embarque require.js : define.amd étant présent, les bundles UMD de vega
+# s'enregistrent en modules AMD au lieu de poser window.vegaEmbed. On masque define
+# le temps de leur chargement.
 CDN = (
+    "<script>var defineAmd = window.define; window.define = undefined;</script>"
     '<script src="https://cdn.jsdelivr.net/npm/vega@6"></script>'
     '<script src="https://cdn.jsdelivr.net/npm/vega-lite@6"></script>'
     '<script src="https://cdn.jsdelivr.net/npm/vega-embed@7"></script>'
+    "<script>window.define = defineAmd;</script>"
 )
 
 
