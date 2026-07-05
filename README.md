@@ -46,7 +46,8 @@ entrecoupée de cellules qui recalculent chaque tableau et chaque graphe depuis
   dans la prose au contenu du parquet.
 
 Les modules du rapport sont `donnees` (chargement et nuançage en blocs), `estimer`
-(pipeline d'estimation), `graphiques` et `tables` (figures et tableaux du notebook).
+(pipeline d'estimation) et `graphiques` (rendu Altair des panneaux de reports) ; les
+tableaux et graphes eux-mêmes sont calculés directement dans les cellules du notebook.
 
 ## En ligne de commande
 

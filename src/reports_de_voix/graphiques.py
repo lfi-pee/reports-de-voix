@@ -2,8 +2,22 @@ from __future__ import annotations
 
 import altair as alt
 import polars as pl
+import vl_convert
 
 alt.data_transformers.enable("default", max_rows=100_000)
+
+
+def _rendu(spec: dict) -> dict[str, object]:
+    """Chaque graphe est émis en PNG (visible partout, GitHub compris) doublé de la
+    spec Vega-Lite pour les frontaux interactifs (zoom, infobulles)."""
+    return {
+        "image/png": vl_convert.vegalite_to_png(spec, scale=2),
+        "application/vnd.vegalite.v6+json": spec,
+    }
+
+
+alt.renderers.register("rapport", _rendu)
+alt.renderers.enable("rapport")
 
 ABST = "non exprimés (T1)"
 TEXT_WIDTH = 800
@@ -28,21 +42,6 @@ COLS = [
     "rang",
     "coul",
 ]
-
-
-def graphe_configurations(conf: pl.DataFrame) -> alt.LayerChart:
-    """Anneau des configurations de second tour (colonnes ``configuration`` et
-    ``nombre``, telles que produites par ``tables.configurations``)."""
-    base = alt.Chart(conf.with_row_index("ordre")).encode(
-        theta=alt.Theta("nombre:Q", stack=True, sort=alt.SortField("ordre")),
-        order=alt.Order("ordre:Q"),
-        color=alt.Color("configuration:N", legend=None),
-    )
-    anneau = base.mark_arc(innerRadius=100, outerRadius=140)
-    labels = base.mark_text(radius=180, size=10, fontWeight="bold").encode(
-        text="configuration:N"
-    )
-    return (anneau + labels).properties(width=500, height=500)
 
 
 def _avec_candidat(df: pl.DataFrame, lookup: pl.DataFrame) -> pl.DataFrame:
