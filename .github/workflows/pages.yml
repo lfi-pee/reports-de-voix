@@ -26,8 +26,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install nbconvert
-      # les sorties (PNG, tableaux) sont dans le notebook : conversion sans exécution
-      - run: jupyter nbconvert --to html --theme dark rapport.ipynb --output index.html --output-dir site
+      # les sorties sont dans le notebook (pas d'exécution) ; les graphes passent
+      # en vega-embed interactif, voir .github/publier_site.py
+      - run: python .github/publier_site.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
